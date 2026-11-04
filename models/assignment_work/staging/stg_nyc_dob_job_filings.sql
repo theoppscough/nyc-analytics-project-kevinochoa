@@ -1,8 +1,8 @@
--- Clean and standardize 311 DOT service request data
+-- Clean and standardize NYC DOB Job Applications
 -- One row per service request
 
 WITH source AS (
-   SELECT * FROM {{ source('raw', 'SOURCE-TABLE-NAME-HERE') }}
+   SELECT * FROM {{ source('raw', 'source_nyc_dob_job_apps') }}
 ), -- Easier to refer to the dbt reference to a long name table this way
 
 cleaned AS (
@@ -10,86 +10,85 @@ cleaned AS (
        -- Get all columns from source, except ones we're transforming below
        -- To do cleaning on them or explicitly cast them as types just in case
        * EXCEPT (
-           unique_key,
-           created_date,
-           closed_date,
-           agency,
-           agency_name,
-           complaint_type,
-           descriptor,
-           status,
-           incident_zip,
-           borough,
-           incident_address,
+           job_filing_number,
+           filing_status,
+           job_type,
+           filing_date,
+           current_status_date,
+           house_no,
            street_name,
-           cross_street_1,
-           cross_street_2,
+           borough,
+           zip,
+           bin,
+           block,
+           lot,
            latitude,
            longitude,
-           open_data_channel_type
+           commmunity_board,           -- yes, the raw column really has 3 m's
+           owner_s_business_name,
+           job_description
        ),
 
        -- Identifiers
-       CAST(unique_key AS STRING) AS request_id,
+       TRIM(CAST(job_filing_number AS STRING)) AS job_filing_id,
+       CAST(bin AS STRING) AS building_id,       -- BIN = Building Identification Number; keep as string (it's an ID, not a number to sum)
+       CAST(block AS STRING) AS tax_block,
+       CAST(lot AS STRING) AS tax_lot,
 
-       -- Date/Time
-       CAST(created_date AS TIMESTAMP) AS created_date,
-       CAST(closed_date AS TIMESTAMP) AS closed_date,
+       -- Filing details
+       UPPER(TRIM(CAST(filing_status AS STRING))) AS filing_status,
+       UPPER(TRIM(CAST(job_type AS STRING))) AS job_type,
+       CAST(job_description AS STRING) AS job_description,
+       CAST(owner_s_business_name AS STRING) AS owner_business_name,
 
-       -- Request details
-       CAST(agency AS STRING) AS agency,
-       CAST(agency_name AS STRING) AS agency_name,
-       CAST(complaint_type AS STRING) AS complaint_type,
-       CAST(descriptor AS STRING) AS descriptor,
-       UPPER(TRIM(CAST(status AS STRING))) AS status,
+       -- Date/Time (if these load as strings and SAFE_CAST returns NULL, switch to PARSE_TIMESTAMP)
+       SAFE_CAST(filing_date AS TIMESTAMP) AS filing_date,
+       SAFE_CAST(current_status_date AS TIMESTAMP) AS current_status_date,
 
-       -- Location - clean zip code, handling several common zip code data problems
+       -- Location - address, renamed to line up with 311's incident_address
+       TRIM(CONCAT(
+           COALESCE(CAST(house_no AS STRING), ''), ' ',
+           COALESCE(CAST(street_name AS STRING), '')
+       )) AS incident_address,
+       CAST(street_name AS STRING) AS street_name,
+
+       -- Location - zip, conformed name "zip" to match 311
+       -- Valid 5-digit or ZIP+4 → keep first 5 digits; anything else → NULL
        CASE
-           WHEN UPPER(TRIM(CAST(incident_zip AS STRING))) IN ('N/A', 'NA') THEN NULL
-           WHEN UPPER(TRIM(CAST(incident_zip AS STRING))) = 'ANONYMOUS' THEN 'Anonymous'
-           WHEN LENGTH(CAST(incident_zip AS STRING)) = 5 THEN CAST(incident_zip AS STRING)
-           WHEN LENGTH(CAST(incident_zip AS STRING)) = 9 THEN CAST(incident_zip AS STRING)
-           WHEN LENGTH(CAST(incident_zip AS STRING)) = 10
-               AND REGEXP_CONTAINS(CAST(incident_zip AS STRING), r'^\d{5}-\d{4}')
-           THEN CAST(incident_zip AS STRING)
+           WHEN REGEXP_CONTAINS(TRIM(CAST(zip AS STRING)), r'^\d{5}(-?\d{4})?$')
+               THEN LEFT(TRIM(CAST(zip AS STRING)), 5)
            ELSE NULL
        END AS zip,
 
-       -- Location - standardized borough, just in case
+       -- Location - borough, SAME output values as stg_nyc_311_dot so they join cleanly
        CASE
-           WHEN UPPER(TRIM(borough)) IN ('MANHATTAN', 'NEW YORK COUNTY') THEN 'Manhattan'
-           WHEN UPPER(TRIM(borough)) IN ('BRONX', 'THE BRONX') THEN 'Bronx'
-           WHEN UPPER(TRIM(borough)) IN ('BROOKLYN', 'KINGS COUNTY') THEN 'Brooklyn'
-           WHEN UPPER(TRIM(borough)) IN ('QUEENS', 'QUEEN', 'QUEENS COUNTY') THEN 'Queens'
-           WHEN UPPER(TRIM(borough)) IN ('STATEN ISLAND', 'RICHMOND COUNTY') THEN 'Staten Island'
+           WHEN UPPER(TRIM(CAST(borough AS STRING))) IN ('MANHATTAN', 'NEW YORK COUNTY', '1') THEN 'Manhattan'
+           WHEN UPPER(TRIM(CAST(borough AS STRING))) IN ('BRONX', 'THE BRONX', '2') THEN 'Bronx'
+           WHEN UPPER(TRIM(CAST(borough AS STRING))) IN ('BROOKLYN', 'KINGS COUNTY', '3') THEN 'Brooklyn'
+           WHEN UPPER(TRIM(CAST(borough AS STRING))) IN ('QUEENS', 'QUEENS COUNTY', '4') THEN 'Queens'
+           WHEN UPPER(TRIM(CAST(borough AS STRING))) IN ('STATEN ISLAND', 'RICHMOND COUNTY', '5') THEN 'Staten Island'
            ELSE 'UNKNOWN or CITYWIDE'
        END AS borough,
 
-       CAST(incident_address AS STRING) AS incident_address,
-       CAST(street_name AS STRING) AS street_name,
-       CAST(cross_street_1 AS STRING) AS cross_street_1,
-       CAST(cross_street_2 AS STRING) AS cross_street_2,
-       CAST(latitude AS DECIMAL) AS latitude,
-       CAST(longitude AS DECIMAL) AS longitude,
-
-       -- Clearer column name as well for this one
-       CAST(open_data_channel_type AS STRING) AS method_of_submission,
+       CAST(commmunity_board AS STRING) AS community_board,
+       SAFE_CAST(latitude AS FLOAT64) AS latitude,
+       SAFE_CAST(longitude AS FLOAT64) AS longitude,
 
        -- Metadata
        CURRENT_TIMESTAMP() AS _stg_loaded_at
-
+ 
    FROM source
+ 
+    -- Filters (kept light so we don't drop too many rows)
+    WHERE job_filing_number IS NOT NULL
+    AND filing_date IS NOT NULL
 
-   -- Filters
-   WHERE (agency = 'DOT' OR agency_name LIKE '%Transportation%')
-   AND unique_key IS NOT NULL
-   AND created_date IS NOT NULL
-   AND CAST(created_date AS DATE) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 YEAR)
-   AND borough IS NOT NULL
-
-   -- Deduplicate
-   QUALIFY ROW_NUMBER() OVER (PARTITION BY unique_key ORDER BY created_date DESC) = 1
+   -- Deduplicate: keep the most recently updated version of each filing
+   QUALIFY ROW_NUMBER() OVER (
+       PARTITION BY TRIM(CAST(job_filing_number AS STRING))
+       ORDER BY SAFE_CAST(current_status_date AS TIMESTAMP) DESC NULLS LAST
+   ) = 1
 )
-
+ 
 SELECT * FROM cleaned
--- All should be part of this table after running: stg_nyc_311_dot
+-- Builds table: stg_nyc_dob_job_filings
