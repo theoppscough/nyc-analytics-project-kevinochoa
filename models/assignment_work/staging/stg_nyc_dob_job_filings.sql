@@ -26,7 +26,10 @@ cleaned AS (
            longitude,
            commmunity_board,           -- yes, the raw column really has 3 m's
            owner_s_business_name,
-           job_description
+           job_description,
+           first_permit_date,
+           approved_date,
+           signoff_date
        ),
 
        -- Identifiers
@@ -44,6 +47,9 @@ cleaned AS (
        -- Date/Time (if these load as strings and SAFE_CAST returns NULL, switch to PARSE_TIMESTAMP)
        SAFE_CAST(filing_date AS TIMESTAMP) AS filing_date,
        SAFE_CAST(current_status_date AS TIMESTAMP) AS current_status_date,
+        SAFE_CAST(first_permit_date AS TIMESTAMP) AS first_permit_date,
+       SAFE_CAST(approved_date AS TIMESTAMP) AS approved_date,
+       SAFE_CAST(signoff_date AS TIMESTAMP) AS signoff_date,
 
        -- Location - address, renamed to line up with 311's incident_address
        TRIM(CONCAT(
