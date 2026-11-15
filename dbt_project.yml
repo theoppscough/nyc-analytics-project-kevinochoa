@@ -38,3 +38,22 @@ models:
 
        dot_311:
          +materialized: table
+
+#group project
+   project_group6_work:
+     staging:
+       +materialized: table
+       +schema: project_group6_staging
+
+     marts:
+       +materialized: table
+       +schema: project_group6_final_warehouse
+      
+       conformed:
+         +materialized: table
+
+       open_parking_camera_violations:
+         +materialized: table
+
+       parking_traffic_311:
+         +materialized: table
