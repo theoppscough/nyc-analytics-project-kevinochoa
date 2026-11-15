@@ -1,0 +1,134 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw data loaded from NYC Open Data
+    database: kevinochoadw
+    schema: 311_open_data_project
+
+    tables:
+      - name: source_311_service_requests_project
+        description: |
+          NYC 311 service requests handled by NYPD.
+          Includes Blocked Driveway, Illegal Parking,
+          Noise - Vehicle, and Traffic complaints.
+          One row per service request.
+
+        columns:
+          - name: unique_key
+            description: Unique ID for the service request
+            data_tests:
+              - not_null
+              - unique
+
+          - name: created_date
+            description: Date and time the request was created
+
+          - name: closed_date
+            description: Date and time the request was closed
+
+          - name: agency
+            description: Agency code
+
+          - name: agency_name
+            description: Full name of the agency
+
+          - name: complaint_type
+            description: Type of complaint
+
+          - name: descriptor
+            description: Further description of the complaint
+
+          - name: location_type
+            description: Location where the incident occurred
+
+          - name: incident_zip
+            description: ZIP code of the incident location
+
+          - name: incident_address
+            description: Street address of the incident
+
+          - name: street_name
+            description: Street where the complaint occurred
+
+          - name: city
+            description: City where the complaint occurred
+
+          - name: borough
+            description: Borough where the complaint occurred
+
+          - name: police_precinct
+            description: Police precinct associated with the complaint
+
+          - name: open_data_channel_type
+            description: Channel through which the request was submitted
+
+          - name: vehicle_type
+            description: Type of vehicle associated with the complaint
+
+          - name: status
+            description: Current status of the 311 service request
+
+      - name: source_open_parking_project
+        description: |
+          NYC Open Parking & Camera Violations.
+          Filtered to issuing_agency = 'POLICE DEPARTMENT'.
+          One row per open violation summons.
+
+        columns:
+          - name: summons_number
+            description: Unique summons identifier
+            data_tests:
+              - not_null
+              - unique
+
+          - name: issue_date
+            description: Date the violation was issued
+
+          - name: violation_time
+            description: Time the violation occurred
+
+          - name: violation
+            description: Violation type
+
+          - name: plate
+            description: License plate number
+
+          - name: state
+            description: Registration state
+
+          - name: license_type
+            description: License type
+
+          - name: precinct
+            description: Precinct associated with the violation
+
+          - name: county
+            description: County or borough associated with the violation
+
+          - name: issuing_agency
+            description: Agency that issued the violation
+
+          - name: fine_amount
+            description: Original fine amount
+
+          - name: penalty_amount
+            description: Penalty amount
+
+          - name: interest_amount
+            description: Interest amount
+
+          - name: reduction_amount
+            description: Reduction amount
+
+          - name: payment_amount
+            description: Payment amount
+
+          - name: amount_due
+            description: Outstanding amount
+
+          - name: violation_status
+            description: Current violation status
+
+          - name: judgment_entry_date
+            description: Judgment entry date
