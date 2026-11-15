@@ -62,4 +62,17 @@ SELECT
         OR (month = 5  AND dow_num = 2 AND day > 24)                  -- Memorial Day (last Mon)
         OR (month = 6  AND day = 19 AND year >= 2021)                 -- Juneteenth
         OR (month = 7  AND day = 4)                                   -- Independence Day
-        OR (month = 9
+        OR (month = 9  AND dow_num = 2 AND week_of_month = 1)         -- Labor Day
+        OR (month = 10 AND dow_num = 2 AND week_of_month = 2)         -- Columbus Day
+        OR (month = 11 AND day = 11)                                  -- Veterans Day
+        OR (month = 11 AND dow_num = 5 AND week_of_month = 4)         -- Thanksgiving
+        OR (month = 12 AND day = 25)                                  -- Christmas
+    ) AS is_holiday
+
+FROM calendar
+
+UNION ALL
+
+-- Unknown member: facts use '-1' when a date is missing (e.g. no judgment entry yet)
+SELECT
+    '-1', NULL, NULL, NULL, NULL, 'Unknown', 'Unknown', NULL, NULL
