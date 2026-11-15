@@ -10,12 +10,10 @@ WITH bounds_source AS (
     SELECT DATE(issue_date) AS d FROM {{ ref('stg_open_camera_violations') }}
     UNION ALL
     SELECT DATE(judgment_entry_date) FROM {{ ref('stg_open_camera_violations') }}
-
-    -- TODO: uncomment once the 311 staging model is in place (use its real name)
-    -- UNION ALL
-    -- SELECT DATE(created_date) FROM {{ ref('stg_nyc_311') }}
-    -- UNION ALL
-    -- SELECT DATE(closed_date)  FROM {{ ref('stg_nyc_311') }}
+    UNION ALL
+    SELECT DATE(created_date) FROM {{ ref('stg_311_requests') }}
+    UNION ALL
+    SELECT DATE(closed_date) FROM {{ ref('stg_311_requests') }}
 ),
 
 bounds AS (
@@ -64,17 +62,4 @@ SELECT
         OR (month = 5  AND dow_num = 2 AND day > 24)                  -- Memorial Day (last Mon)
         OR (month = 6  AND day = 19 AND year >= 2021)                 -- Juneteenth
         OR (month = 7  AND day = 4)                                   -- Independence Day
-        OR (month = 9  AND dow_num = 2 AND week_of_month = 1)         -- Labor Day
-        OR (month = 10 AND dow_num = 2 AND week_of_month = 2)         -- Columbus Day
-        OR (month = 11 AND day = 11)                                  -- Veterans Day
-        OR (month = 11 AND dow_num = 5 AND week_of_month = 4)         -- Thanksgiving
-        OR (month = 12 AND day = 25)                                  -- Christmas
-    ) AS is_holiday
-
-FROM calendar
-
-UNION ALL
-
--- Unknown member: facts use '-1' when a date is missing (e.g. no judgment entry yet)
-SELECT
-    '-1', NULL, NULL, NULL, NULL, 'Unknown', 'Unknown', NULL, NULL
+        OR (month = 9
